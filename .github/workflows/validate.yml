@@ -1,0 +1,19 @@
+# 매니페스트가 스펙을 지키는지 PR 마다 확인한다.
+#
+# 사이트 배포(`borch` 쪽 pages.yml)와 달리 이것은 자동으로 돈다. 공개 여부를 정하는
+# 일이 아니라 **틀린 것을 병합하지 않는 일**이고, 그건 사람의 결정을 대신 내리는
+# 것이 아니라 사람이 결정할 것을 줄여주는 쪽이다.
+name: 매니페스트 검사
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run --with jsonschema python scripts/validate.py

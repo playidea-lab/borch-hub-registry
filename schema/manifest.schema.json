@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/playidea-lab/borch-hub-registry/main/schema/manifest.schema.json",
+  "title": "borch-hub 모델 매니페스트",
+  "description": "이 파일이 borch-hub 의 유일한 계약이다. 배포된 뒤에는 못 바꾼다 — 남의 페이지가 이미 그 필드를 읽고 있기 때문이다. 필드를 늘리는 것은 되지만 뜻을 바꾸거나 지우는 것은 schemaVersion 을 올려야 한다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "version", "arch", "weights", "runtime", "sample", "origin", "license"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "이 매니페스트가 따르는 스펙 판. 클라이언트가 모르는 판을 만나면 추측하지 않고 멈춘다."
+    },
+
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "레지스트리 안에서 유일한 이름. 디렉터리 이름과 같아야 한다."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+      "description": "모델 버전. borch 버전과 무관하게 따로 간다."
+    },
+
+    "description": { "type": "string" },
+    "task": {
+      "type": "string",
+      "description": "무엇을 하는 모델인가. 발견 레이어가 이것으로 묶는다.",
+      "examples": ["image-classification"]
+    },
+    "dataset": { "type": "string", "examples": ["cifar-10"] },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+
+    "arch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["factory"],
+      "description": "가중치만으로는 모델이 복원되지 않는다. borch-hub 의 카탈로그에 있는 팩토리 이름과 인자로 구조를 되살린다.",
+      "properties": {
+        "factory": {
+          "type": "string",
+          "description": "borch-hub 카탈로그의 이름. createModel(factory, args) 가 이것을 받는다.",
+          "examples": ["resnet18"]
+        },
+        "args": {
+          "type": "object",
+          "description": "팩토리에 그대로 넘어간다. 여기 없는 인자는 팩토리 기본값이 쓰인다 — 기본값이 바뀌면 옛 매니페스트가 다른 모델을 만들게 되므로, 값에 의존하는 인자는 전부 적을 것."
+        }
+      }
+    },
+
+    "weights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "sha256", "bytes", "format"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "CDN 주소. 이 저장소에는 바이트가 없다."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "받은 바이트 전체의 해시. 로더가 loadStateDict 전에 대조한다 — 안 맞으면 멈춘다."
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "받기 전에 사용자에게 알려줄 수 있어야 한다. 45MB 를 말없이 받는 라이브러리는 쓰이지 않는다."
+        },
+        "format": {
+          "const": "safetensors",
+          "description": "pickle 은 브라우저로 옮길 수도 없고 옮겨서도 안 된다. 머리가 JSON 이라 range 요청으로 텐서 하나만 뽑는 부분 로드도 이 형식이 공짜로 준다."
+        }
+      }
+    },
+
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "어디서 도는가. semver 하나로 안 되는 이유는 런타임이 셋이고(numpy 파이썬 · borch.ts · borch-webgpu) 파이썬 판과 npm 판의 버전이 따로 가기 때문이다.",
+      "anyOf": [
+        { "required": ["ts"], "properties": { "ts": { "type": "string" } } },
+        { "required": ["py"], "properties": { "py": { "type": "string" } } }
+      ],
+      "properties": {
+        "ts": {
+          "type": ["string", "null"],
+          "description": "npm `borch` 의 semver 범위. null 이면 이 런타임을 지원하지 않는다.",
+          "examples": [">=0.1.0"]
+        },
+        "py": {
+          "type": ["string", "null"],
+          "description": "PyPI `borch` 의 semver 범위."
+        },
+        "webgpu": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required"],
+          "description": "받기 전에 판정할 수 있어야 한다. 45MB 를 받고 나서 '안 됩니다'는 배지가 아니다.",
+          "properties": {
+            "required": { "type": "boolean" },
+            "limits": {
+              "type": "object",
+              "additionalProperties": { "type": "integer" },
+              "description": "GPUAdapter 의 limits 중 이 모델이 요구하는 최소값. 클라이언트가 어댑터를 잡은 뒤 대조한다.",
+              "examples": [{ "maxStorageBufferBindingSize": 134217728 }]
+            }
+          }
+        }
+      }
+    },
+
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputUrl", "outputUrl", "rtol", "atol"],
+      "description": "배지가 주장이 아니라 사실이 되는 자리. 받는 쪽이 스스로 돌려 대조한다.",
+      "properties": {
+        "inputUrl": { "type": "string", "format": "uri-reference" },
+        "outputUrl": { "type": "string", "format": "uri-reference" },
+        "rtol": { "type": "number", "exclusiveMinimum": 0 },
+        "atol": { "type": "number", "minimum": 0 }
+      }
+    },
+
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["values", "measuredBy", "measuredAt"],
+      "description": "누가 언제 무엇으로 쟀는지가 없는 수는 수가 아니다.",
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": { "type": "number" },
+          "examples": [{ "top1": 0.912 }]
+        },
+        "measuredBy": {
+          "type": "string",
+          "description": "런타임·버전·브라우저·장치까지. 손으로 돌리므로 이 문자열이 유일한 기록이다.",
+          "examples": ["borch.ts 0.1.0 / Chrome 141 / Apple M2 Pro"]
+        },
+        "measuredAt": { "type": "string", "format": "date" }
+      }
+    },
+
+    "origin": {
+      "enum": ["trained-by-borch", "converted-from-torch"],
+      "description": "우리가 잰 수와 남이 발표한 수를 처음부터 다른 이름으로 부른다. converted-from-torch 인 모델의 metrics 를 발표된 top-1 과 비교하면 안 된다 — 비트 동등은 borch 의 명시적 비목표다."
+    },
+
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["weights"],
+      "properties": {
+        "weights": { "type": "string", "description": "SPDX 식별자 또는 URL." },
+        "data": {
+          "type": "string",
+          "description": "학습에 쓴 데이터의 조건. 가중치가 그 조건을 물려받는 경우가 있어서 따로 적는다.",
+          "examples": ["CIFAR-10 (research use)"]
+        }
+      }
+    },
+
+    "attestation": {
+      "type": ["object", "null"],
+      "default": null,
+      "description": "검증 증거가 붙는 자리. 지금은 비어 있다 — 첫 재고가 우리가 직접 학습한 것이라 서명할 상대가 없기 때문이다. 남의 모델을 받기 시작하면 여기에 SEAL 레코드가 들어온다. 자리를 미리 비워 두는 것은 그때 스펙을 안 깨기 위해서다."
+    }
+  }
+}

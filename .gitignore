@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.claude/
+.mcp.json
+node_modules/
+
+# 인덱스는 생성물이다 — scripts/build_index.py 가 models/ 를 훑어 만든다.
+# 커밋하면 매니페스트와 갈릴 자리가 하나 늘고, 갈린 것은 아무도 안 본다.
+index.json
+
+# 가중치는 여기 없다. 절대 들어오면 안 된다 — 매니페스트에 URL 과 sha256 만 둔다.
+*.safetensors.weights
+*.bin
