@@ -40,12 +40,30 @@ models/<이름>/<버전>/
 
 ## 모델을 추가하려면
 
-1. `models/<이름>/<버전>/` 을 만들고 위 네 파일을 넣는다
-2. `uv run --with jsonschema python scripts/validate.py` 로 스펙을 확인한다
-3. PR 을 연다 — CI 가 같은 검사를 돌린다
+학습이 뱉은 화물(`model.safetensors` · `sample.in` · `sample.out` · `summary.json`)에서
+시작한다. 네 단계이고, **순서가 정해져 있다.**
 
-가중치를 CDN 에 올리는 것은 사람이 하는 별도 단계다. 매니페스트가 먼저 병합되고
-바이트가 없으면 로더가 404 를 받는다 — 순서를 지킬 것.
+```bash
+# 1. 화물 → 레지스트리 항목 (매니페스트 · 샘플 · 기록 초안)
+uv run --with jsonschema python scripts/pack.py     --cargo ~/git/borch-hub/out --name cifar10-resnet18 --version 1.0.0     --base https://models.pilab.kr/cifar10-resnet18/1.0.0 --date 2026-08-19
+
+# 2. 가중치를 CDN 으로. 올린 뒤 공개 주소로 다시 받아 해시를 대조한다
+uv run --with boto3 python scripts/upload.py     --file ~/git/borch-hub/out/model.safetensors --bucket borch-hub     --key cifar10-resnet18/1.0.0/model.safetensors --public-base https://models.pilab.kr
+
+# 3. 받는 사람이 될 것 — 이 매니페스트로 실제로 왕복이 도는지 (borch-hub 에서)
+npm run roundtrip -- --manifest models/cifar10-resnet18/1.0.0/manifest.json
+
+# 4. 스펙 확인 후 PR
+uv run --with jsonschema python scripts/validate.py
+```
+
+**2 번이 1 번보다 먼저 병합되면 안 된다.** 매니페스트가 가리키는 바이트가 없으면
+받는 쪽은 404 를 만나고, 그것은 우리가 아니라 그 사람이 겪는다.
+
+**3 번을 건너뛰지 말 것.** 1·2 가 성공해도 로더가 그 매니페스트를 소화하는지는
+별개다 — 상대 주소와 절대 주소가 한 문서에 섞여 있고, 그 이음매는 실제로 받아 봐야
+걸린다. 그리고 `training.md` 초안은 **사람이 읽고 보태라.** 손으로 돌린 실행이라
+그 파일 말고는 그 가중치가 어떻게 나왔는지 아는 것이 없다.
 
 ## 관련
 
