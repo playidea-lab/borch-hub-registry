@@ -87,7 +87,11 @@ def main() -> int:
     # **공개 주소로 다시 받아 대조한다.** S3 로 넣었다고 CDN 에서 나오는 것은 아니다 —
     # 도메인 연결이 안 됐거나 캐시가 옛것을 쥐고 있으면 여기서 갈린다.
     url = f"{args.public_base.rstrip('/')}/{args.key}"
-    with urllib.request.urlopen(url) as res:
+    # **User-Agent 를 준다.** Cloudflare 는 `Python-urllib/3.x` 를 봇으로 보고 403 을
+    # 준다 — 실측이다. 그러면 올리기는 멀쩡히 됐는데 확인 단계만 실패해서, 자산에
+    # 문제가 있는 것처럼 보인다. curl 로는 200 이 나오던 자리다.
+    request = urllib.request.Request(url, headers={"User-Agent": "borch-hub-upload/1"})
+    with urllib.request.urlopen(request) as res:
         got = res.read()
         headers = {k.lower(): v for k, v in res.headers.items()}
     back = hashlib.sha256(got).hexdigest()
