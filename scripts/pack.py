@@ -30,6 +30,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SIBLINGS = ("sample.in.safetensors", "sample.out.safetensors")
 
 
+def _fail(what: str):
+    raise SystemExit(f"{what} 가 없습니다 — 판 2 매니페스트는 전처리를 적어야 합니다.\n"
+                     "  없으면 가중치는 실리는데 아무것도 못 넣습니다.")
+
+
 def build(args: argparse.Namespace) -> int:
     cargo = pathlib.Path(args.cargo).expanduser().resolve()
     summary_path = cargo / "summary.json"
@@ -56,15 +61,25 @@ def build(args: argparse.Namespace) -> int:
     for sibling in SIBLINGS:
         shutil.copy2(cargo / sibling, out / sibling)
 
+    classes = [c.strip() for c in args.classes.split(",")] if args.classes else None
+    if classes is None:
+        print("--classes 가 없습니다 — 판 2 매니페스트는 나온 수를 읽는 법을 적어야 합니다.\n"
+              "  없으면 받는 쪽은 argmax 가 3 이라는 것까지만 압니다.", file=sys.stderr)
+        return 2
+
+    def numbers(text, what):
+        return [float(x) for x in text.split(",")] if text else _fail(what)
+
     manifest = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "name": args.name,
         "version": args.version,
         "description": args.description,
         "task": args.task,
         "dataset": args.dataset,
         "tags": args.tags.split(",") if args.tags else [],
-        "arch": {"factory": args.factory, "args": {"numClasses": args.classes}},
+        "arch": {"library": args.library, "factory": args.factory,
+                 "args": {"numClasses": len(classes)}},
         "weights": {
             "url": f"{args.base.rstrip('/')}/model.safetensors",
             "sha256": digest,
@@ -86,6 +101,15 @@ def build(args: argparse.Namespace) -> int:
             "measuredBy": f"borch.ts / {summary['adapter']}",
             "measuredAt": args.date,
         },
+        "preprocess": {
+            "inputSize": [int(n) for n in args.input_size.split(",")],
+            "valueRange": "unit",
+            "mean": numbers(args.mean, "--mean"),
+            "std": numbers(args.std, "--std"),
+            "resize": None,
+            "centerCrop": None,
+        },
+        "outputs": {"kind": "logits", "classes": classes},
         "origin": "trained-by-borch",
         "license": {"weights": args.license, "data": args.data_license},
         "attestation": None,
@@ -137,8 +161,17 @@ def main() -> int:
     p.add_argument("--version", required=True)
     p.add_argument("--base", required=True, help="이 버전이 사는 CDN 주소")
     p.add_argument("--date", required=True, help="잰 날짜 (YYYY-MM-DD)")
-    p.add_argument("--factory", default="resnet18")
-    p.add_argument("--classes", type=int, default=10)
+    p.add_argument("--library", default="borchvision",
+                   help="factory 가 어느 카탈로그의 것인가 (borchvision·bimm)")
+    p.add_argument("--factory", default="resnet18_cifar")
+    p.add_argument("--classes", default=None,
+                   help="logits 자리마다의 이름, 쉼표로. 판 2 에는 필수다")
+    # **상수를 여기 박지 않는다.** CIFAR 의 mean/std 를 스크립트가 알고 있으면
+    # 다음 데이터셋에서 조용히 틀린 값이 붙는다. 만든 쪽이 아는 값이므로 만든
+    # 쪽이 말해야 하고, 그 값은 이 명령과 함께 training.md 에 남는다.
+    p.add_argument("--input-size", dest="input_size", default="3,32,32", help="C,H,W")
+    p.add_argument("--mean", default=None, help="채널마다, 쉼표로")
+    p.add_argument("--std", default=None, help="채널마다, 쉼표로")
     p.add_argument("--task", default="image-classification")
     p.add_argument("--dataset", default="cifar-10")
     p.add_argument("--tags", default="vision,resnet,cifar-10")

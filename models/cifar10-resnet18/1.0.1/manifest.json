@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "name": "cifar10-resnet18",
+  "version": "1.0.1",
+  "description": "CIFAR-10 ResNet-18, 브라우저에서 학습했다 (borch.ts · WebGPU)",
+  "task": "image-classification",
+  "dataset": "cifar-10",
+  "tags": [
+    "vision",
+    "resnet",
+    "cifar-10"
+  ],
+  "arch": {
+    "library": "borchvision",
+    "factory": "resnet18_cifar",
+    "args": {
+      "numClasses": 10
+    }
+  },
+  "weights": {
+    "url": "https://models.pilab.kr/cifar10-resnet18/1.0.0/model.safetensors",
+    "sha256": "e942e2f4907d8338dde35c428b50527d6a07c167b4456b993b13017e074e4650",
+    "bytes": 44745240,
+    "format": "safetensors"
+  },
+  "runtime": {
+    "ts": ">=0.1.0",
+    "py": null,
+    "webgpu": {
+      "required": true,
+      "limits": {}
+    }
+  },
+  "sample": {
+    "inputUrl": "sample.in.safetensors",
+    "outputUrl": "sample.out.safetensors",
+    "rtol": 0.0001,
+    "atol": 1e-05
+  },
+  "metrics": {
+    "values": {
+      "top1": 0.8631,
+      "top1_best": 0.8749
+    },
+    "measuredBy": "borch.ts / apple / metal-3",
+    "measuredAt": "2026-08-20"
+  },
+  "preprocess": {
+    "inputSize": [
+      3,
+      32,
+      32
+    ],
+    "valueRange": "unit",
+    "mean": [
+      0.4914,
+      0.4822,
+      0.4465
+    ],
+    "std": [
+      0.247,
+      0.2435,
+      0.2616
+    ],
+    "resize": null,
+    "centerCrop": null
+  },
+  "outputs": {
+    "kind": "logits",
+    "classes": [
+      "airplane",
+      "automobile",
+      "bird",
+      "cat",
+      "deer",
+      "dog",
+      "frog",
+      "horse",
+      "ship",
+      "truck"
+    ]
+  },
+  "origin": "trained-by-borch",
+  "license": {
+    "weights": "Apache-2.0",
+    "data": "CIFAR-10 (research use)"
+  },
+  "attestation": null
+}
