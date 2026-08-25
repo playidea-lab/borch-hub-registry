@@ -55,8 +55,14 @@
       0.224,
       0.225
     ],
-    "resize": null,
-    "centerCrop": null
+    "resize": {
+      "shortSide": 256,
+      "interpolation": "bilinear"
+    },
+    "centerCrop": [
+      224,
+      224
+    ]
   },
   "outputs": {
     "kind": "logits",

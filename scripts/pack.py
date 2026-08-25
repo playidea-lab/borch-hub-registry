@@ -134,8 +134,15 @@ def build(args: argparse.Namespace) -> int:
             "valueRange": "unit",
             "mean": numbers(args.mean, "--mean"),
             "std": numbers(args.std, "--std"),
-            "resize": None,
-            "centerCrop": None,
+            # **둘을 비워 두면 이미지가 모델에 안 맞게 들어간다.** 32×32 로 학습한
+            # 첫 화물은 크기를 맞추는 것만으로 충분했지만, ImageNet 계열은 짧은 변을
+            # 키운 뒤 가운데를 자르는 것이 학습 때의 규칙이다. 안 적으면 받는 쪽이
+            # 늘려 넣게 되고, 모델은 실리는데 이름이 틀리게 나온다(실측).
+            "resize": (None if args.resize_short_side is None else
+                       {"shortSide": args.resize_short_side,
+                        "interpolation": args.interpolation}),
+            "centerCrop": ([int(n) for n in args.center_crop.split(",")]
+                           if args.center_crop else None),
         },
         "outputs": {"kind": "logits", "classes": classes},
         "origin": args.origin,
@@ -192,7 +199,7 @@ def _provenance(out, args, summary, digest, manifest) -> int:
     한 명도 반년 뒤에는 잊는다 — `training.md` 를 필수로 둔 이유와 같다. 다른 것은
     적을 내용뿐이다: 우리가 무엇을 했는지가 아니라 **누구의 것을 어떻게 옮겼는지.**
     """
-    src = summary.get("source", {})
+    src = {**summary.get("source", {}), **summary.get("preprocess", {})}
     record = out / "provenance.md"
     if not record.exists():
         top1 = summary.get("publishedTop1")
@@ -223,6 +230,17 @@ def _provenance(out, args, summary, digest, manifest) -> int:
             "카탈로그(`bimm`) 쪽에 `browser/parity.py` 가 있다. timm 을 실제로 세워",
             "가중치·입력·출력을 받아 오고, 같은 가중치를 같은 입력에 통과시켜 수를",
             "나란히 놓는다 — 열쇠 집합과 출력 둘 다 본다.",
+            "",
+            "## 옮기면서 갈린 것",
+            "",
+            f"원본은 resize 에 `{src.get('interpolation')}` 보간을 쓴다. 코어와 이",
+            "레지스트리의 스키마가 아는 것은 `bilinear`·`nearest` 뿐이라 **그대로 못",
+            "옮겼다.** 매니페스트에는 `bilinear` 이 적혀 있고, 그것이 원본과 다른",
+            "유일한 전처리 항목이다.",
+            "",
+            "크기와 자르기는 원본대로다 — 짧은 변을",
+            f"`{src.get('resizeShortSide')}` 로 키운 뒤 가운데를",
+            f"`{src.get('inputSize')}` 로 자른다(crop_pct {src.get('cropPct')}).",
             "",
             "## 샘플",
             "",
@@ -258,6 +276,11 @@ def main() -> int:
     # 다음 데이터셋에서 조용히 틀린 값이 붙는다. 만든 쪽이 아는 값이므로 만든
     # 쪽이 말해야 하고, 그 값은 이 명령과 함께 training.md 에 남는다.
     p.add_argument("--input-size", dest="input_size", default="3,32,32", help="C,H,W")
+    p.add_argument("--resize-short-side", dest="resize_short_side", type=int, default=None,
+                   help="짧은 변을 이 크기로 (torchvision Resize(int) 규칙)")
+    p.add_argument("--center-crop", dest="center_crop", default=None, help="H,W")
+    p.add_argument("--interpolation", default="bilinear", choices=("bilinear", "nearest"),
+                   help="resize 의 보간. 코어와 스키마가 아는 것이 이 둘뿐이다")
     p.add_argument("--mean", default=None, help="채널마다, 쉼표로")
     p.add_argument("--std", default=None, help="채널마다, 쉼표로")
     p.add_argument("--task", default="image-classification")
