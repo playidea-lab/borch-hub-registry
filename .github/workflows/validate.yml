@@ -1,5 +1,13 @@
 # 매니페스트가 스펙을 지키는지 PR 마다 확인한다.
 #
+# ## 검사가 둘인 이유
+#
+# 스키마는 매니페스트가 **어떤 모양인지**까지만 본다 — `args` 가 객체인지는 알아도
+# 그 팩토리가 무엇을 받는지는 모른다. 그것은 카탈로그가 알고, 표를 여기 옮겨 적으면
+# 두 벌이 되고 두 벌은 갈린다. 그래서 두 번째 검사는 카탈로그(`bimm-ts`)를 설치해
+# **직접 물어본다.** GPU 없는 러너에서 도는 것은 bimm 이 인자 검사를 모델 만들기
+# 앞에 두었기 때문이다.
+#
 # 사이트 배포(`borch` 쪽 pages.yml)와 달리 이것은 자동으로 돈다. 공개 여부를 정하는
 # 일이 아니라 **틀린 것을 병합하지 않는 일**이고, 그건 사람의 결정을 대신 내리는
 # 것이 아니라 사람이 결정할 것을 줄여주는 쪽이다.
@@ -16,4 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv run --with jsonschema python scripts/validate.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 스펙 검사
+        run: uv run --with jsonschema python scripts/validate.py
+
+      # 저장할 것이 없다 — 이 저장소는 매니페스트를 두는 곳이지 노드 패키지가 아니다.
+      - name: 인자를 카탈로그에 대조
+        run: |
+          npm i --no-save --no-package-lock bimm-ts borch-ts
+          node scripts/check-args.mjs
