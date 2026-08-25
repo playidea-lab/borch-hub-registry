@@ -67,18 +67,18 @@
       "properties": {
         "factory": {
           "type": "string",
-          "description": "borch-hub 카탈로그의 이름. createModel(factory, args) 가 이것을 받는다.",
+          "description": "bimm 카탈로그의 이름. createModel(library, factory, args) 가 library 와 함께 이것을 받는다.",
           "examples": [
             "resnet18"
           ]
         },
         "args": {
           "type": "object",
-          "description": "팩토리에 그대로 넘어간다. 여기 없는 인자는 팩토리 기본값이 쓰인다 — 기본값이 바뀌면 옛 매니페스트가 다른 모델을 만들게 되므로, 값에 의존하는 인자는 전부 적을 것."
+          "description": "팩토리가 받는 인자. **전부 적어야 한다 — 기본값은 없다.** 빠뜨리면 카탈로그가 거절하고(bimm 의 checkArgs), 모르는 인자도 거절한다. 기본값으로 메우면 그 값을 바꾸는 날 이미 배포된 매니페스트가 다른 모델을 만드는데, 가중치는 모양이 맞으니 실린 다음 틀린 수를 낸다. 규격은 bimm 의 factorySpec(library, factory) 이 말해 준다."
         },
         "library": {
           "type": "string",
-          "description": "factory 이름이 어느 카탈로그의 것인가. **이름공간이 없으면 이 필드는 언젠가 거짓말이 된다** — 실제 생태계에서 torchvision 의 resnet18 과 timm 의 resnet18 은 다른 모델이고 가중치가 안 호환된다. 우리도 borchvision 과 bimm 이 둘 다 생기면 같은 자리에 선다. 카탈로그 코드가 지금 어디 있든(borch-hub 안이다) 이 이름은 **규약**을 가리킨다.",
+          "description": "factory 이름이 어느 카탈로그의 것인가. **이름공간이 없으면 이 필드는 언젠가 거짓말이 된다** — 실제 생태계에서 torchvision 의 resnet18 과 timm 의 resnet18 은 다른 모델이고 가중치가 안 호환된다. 우리도 borchvision 과 bimm 이 둘 다 생기면 같은 자리에 선다. 카탈로그 코드가 지금 어디 있든(bimm 안이다) 이 이름은 **규약**을 가리킨다 — bimm 이 borchvision 의 아키텍처를 들고 있는 것은 모순이 아니라 설계다.",
           "examples": [
             "borchvision",
             "bimm"
