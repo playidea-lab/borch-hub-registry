@@ -19,11 +19,21 @@ SCHEMA = ROOT / "schema" / "manifest.schema.json"
 MODELS = ROOT / "models"
 
 # 매니페스트 옆에 반드시 같이 있어야 하는 것들.
+REQUIRED_SIBLINGS = ("sample.in.safetensors", "sample.out.safetensors")
+
+# 그리고 **출신마다 하나 더.**
 #
-# `training.md` 가 여기 있는 이유: 학습을 손으로 돌리기로 했으므로 자동 기록이 없다.
-# 이 파일이 빠지면 그 가중치가 어떻게 나왔는지 아는 사람이 세상에 한 명뿐이 되고,
-# 그 한 명도 반년 뒤에는 잊는다.
-REQUIRED_SIBLINGS = ("sample.in.safetensors", "sample.out.safetensors", "training.md")
+# 기록이 여기 있는 이유: 손으로 돌리기로 했으므로 자동 기록이 없다. 이 파일이 빠지면
+# 그 가중치가 어디서 나왔는지 아는 사람이 세상에 한 명뿐이 되고, 그 한 명도 반년
+# 뒤에는 잊는다.
+#
+# 이름이 갈리는 것은 **적을 내용이 다르기 때문이다.** 우리가 학습한 화물은 에폭과
+# 정확도를 남기고, 가져온 화물은 누구의 것을 어떻게 옮겼는지를 남긴다. 가져온 화물에
+# `training.md` 를 요구하면 학습하지 않은 사람이 학습 기록을 지어내게 된다.
+RECORD_BY_ORIGIN = {
+    "trained-by-borch": "training.md",
+    "converted-from-torch": "provenance.md",
+}
 
 
 def _problems(manifest_path: Path, validator: Draft202012Validator) -> list[str]:
@@ -48,6 +58,13 @@ def _problems(manifest_path: Path, validator: Draft202012Validator) -> list[str]
     for sibling in REQUIRED_SIBLINGS:
         if not (version_dir / sibling).exists():
             found.append(f"{rel}: 옆에 있어야 할 {sibling} 이 없습니다")
+
+    # 출신이 요구하는 기록. 스키마가 origin 을 enum 으로 좁혀 두었으므로 여기서
+    # 모르는 값을 만나는 일은 스키마 검사가 먼저 잡는다.
+    record = RECORD_BY_ORIGIN.get(doc.get("origin"))
+    if record is not None and not (version_dir / record).exists():
+        found.append(f"{rel}: 옆에 있어야 할 {record} 이 없습니다"
+                     f" (origin 이 {doc.get('origin')} 입니다)")
 
     return found
 
