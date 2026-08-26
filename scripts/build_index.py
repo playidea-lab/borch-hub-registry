@@ -36,17 +36,27 @@ MODELS = ROOT / "models"
 INDEX = ROOT / "index.json"
 
 SCHEMA_VERSION = 1
+# 매니페스트가 사는 공개 주소의 뿌리. `publish.py` 가 올리는 자리와 같아야 한다.
+PUBLIC = "https://models.pilab.kr"
 
 
-def entry(manifest_path: Path, doc: dict[str, object]) -> dict[str, object]:
+def entry(manifest_path: Path, doc: dict[str, object], public: str) -> dict[str, object]:
     """매니페스트 하나에서 **고르는 데 필요한 것만** 뽑는다."""
     weights = doc["weights"]
     assert isinstance(weights, dict)
-    # 매니페스트 주소는 가중치 주소에서 얻는다. 둘은 **같은 디렉터리에 있어야 하고**,
-    # 그 사실이 여기 박히는 것이 맞다 — 샘플이 상대 주소로 적혀 있어서 매니페스트가
-    # 다른 곳에 있으면 샘플을 못 찾는다.
-    url = str(weights["url"])
-    base = url.rsplit("/", 1)[0]
+    # **매니페스트 주소는 매니페스트가 사는 자리에서 얻는다.**
+    #
+    # 전에는 가중치 주소의 디렉터리를 썼다 — 둘이 같은 곳에 있다고 여겼기 때문이다.
+    # 그 전제가 틀렸다: `cifar10-resnet18` 1.0.1 은 **1.0.0 의 바이트를 그대로 쓴다**
+    # (같은 가중치, 전처리만 판 2 로 새로 적은 매니페스트). 그래서 목차가 1.0.1 을
+    # 1.0.0 의 매니페스트로 보냈고, 목록을 따라간 사람은 **1.0.1 을 고르고 1.0.0 을
+    # 받았다.** 해시가 다르면 배지가 잡겠지만, 그건 배지가 잡는 것이지 목록이 맞는
+    # 것은 아니다.
+    #
+    # 가중치는 어디 있어도 된다(절대 주소다). 매니페스트와 같은 자리에 있어야 하는
+    # 것은 **샘플**이고, 그건 상대 주소라 저절로 따라간다.
+    here = manifest_path.parent.relative_to(MODELS).as_posix()
+    base = f"{public.rstrip('/')}/{here}"
     return {
         "name": doc["name"],
         "version": doc["version"],
@@ -60,11 +70,11 @@ def entry(manifest_path: Path, doc: dict[str, object]) -> dict[str, object]:
     }
 
 
-def build() -> dict[str, object]:
+def build(public: str) -> dict[str, object]:
     entries = []
     for manifest_path in sorted(MODELS.rglob("manifest.json")):
         doc = json.loads(manifest_path.read_text())
-        entries.append(entry(manifest_path, doc))
+        entries.append(entry(manifest_path, doc, public))
     # **정해진 순서로 낸다.** 파일시스템 순서에 맡기면 아무것도 안 바뀐 날에도 diff 가
     # 생기고, 그러면 diff 가 신호이기를 그만둔다.
     entries.sort(key=lambda e: (str(e["name"]), str(e["version"])))
@@ -72,7 +82,8 @@ def build() -> dict[str, object]:
 
 
 def main(argv: list[str]) -> int:
-    made = build()
+    public = argv[argv.index("--public-base") + 1] if "--public-base" in argv else PUBLIC
+    made = build(public)
     text = json.dumps(made, indent=2, ensure_ascii=False) + "\n"
 
     models = made["models"]
@@ -81,6 +92,19 @@ def main(argv: list[str]) -> int:
     if len(models) != found:
         print(f"매니페스트 {found}개인데 목차는 {len(models)}줄이다 — 하나가 떨어졌다",
               file=sys.stderr)
+        return 1
+
+    # **각 줄이 자기 판을 가리키는지 본다.**
+    #
+    # 한 번 안 그런 적이 있다. 목차가 1.0.1 을 1.0.0 의 매니페스트로 보냈고, 목록을
+    # 따라간 사람은 **고른 것과 다른 것을 받았다.** 그 종류의 실수는 조용하다 — 주소가
+    # 200 으로 열리고 매니페스트도 멀쩡하다. 다만 다른 모델일 뿐이다.
+    astray = [m for m in models
+              if not str(m["manifestUrl"]).endswith(f"{str(m['path'])[len('models/'):]}/manifest.json")]
+    if astray:
+        for m in astray:
+            print(f"{m['name']} {m['version']} 이 남의 자리를 가리킨다:\n"
+                  f"  사는 곳 {m['path']}\n  가리키는 곳 {m['manifestUrl']}", file=sys.stderr)
         return 1
 
     if "--dry-run" in argv:
