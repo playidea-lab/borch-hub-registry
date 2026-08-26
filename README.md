@@ -15,6 +15,20 @@ ResNet-18 하나가 45MB 다. 모델이 스무 개면 저장소가 1GB 가 되�
 방식이다 — 바깥에서 받아온 것은 저장소에 해시만 둔다. 바이트가 갈리면 로더가
 받는 자리에서 멈춘다.
 
+## 목차
+
+`index.json` 은 `models/` 를 훑어 만든 **생성물이고 저장소에 안 남는다.** `.gitignore`
+가 그 이유를 적어 뒀다 — 커밋하면 매니페스트와 갈릴 자리가 하나 늘고, 갈린 것은
+아무도 안 본다. 올릴 때마다 다시 만든다:
+
+```bash
+uv run python scripts/build_index.py            # 만든다
+uv run python scripts/build_index.py --dry-run  # 만들 수 있는지만 본다 (CI 가 이것을 돌린다)
+```
+
+받는 데 필요한 것까지만 담는다 — 이름·판·과제·데이터셋·크기·출신·매니페스트 주소.
+전처리 표나 클래스 1000 개는 **고른 다음** 필요한 것이라 매니페스트에 남는다.
+
 ## 배치
 
 ```
@@ -41,7 +55,7 @@ models/<이름>/<버전>/
 ## 모델을 추가하려면
 
 학습이 뱉은 화물(`model.safetensors` · `sample.in` · `sample.out` · `summary.json`)에서
-시작한다. 네 단계이고, **순서가 정해져 있다.**
+시작한다. 여섯 단계이고, **순서가 정해져 있다.**
 
 ```bash
 # 1. 화물 → 레지스트리 항목 (매니페스트 · 샘플 · 기록 초안)
@@ -53,12 +67,36 @@ uv run --with boto3 python scripts/upload.py     --file ~/git/borch-hub/out/mode
 # 3. 받는 사람이 될 것 — 이 매니페스트로 실제로 왕복이 도는지 (borch-hub 에서)
 npm run roundtrip -- --manifest models/cifar10-resnet18/1.0.0/manifest.json
 
-# 4. 스펙 확인 후 PR
+# 4. 매니페스트와 샘플도 CDN 으로 — **받는 사람이 이것을 받을 곳이 여기뿐이다**
+for f in manifest.json sample.in.safetensors sample.out.safetensors; do
+  uv run --with boto3 python scripts/upload.py \
+    --file models/cifar10-resnet18/1.0.0/$f --bucket borch-hub \
+    --key cifar10-resnet18/1.0.0/$f --public-base https://models.pilab.kr \
+    --content-type $([ "$f" = manifest.json ] && echo application/json || echo application/octet-stream)
+done
+
+# 5. 목차를 다시 만들고 올린다 (바뀌는 파일이므로 --mutable)
+uv run python scripts/build_index.py
+uv run --with boto3 python scripts/upload.py \
+  --file index.json --bucket borch-hub --key index.json \
+  --public-base https://models.pilab.kr --content-type application/json --mutable
+
+# 6. 스펙 확인 후 PR
 uv run --with jsonschema python scripts/validate.py
+uv run python scripts/build_index.py --dry-run
 ```
 
 **2 번이 1 번보다 먼저 병합되면 안 된다.** 매니페스트가 가리키는 바이트가 없으면
 받는 쪽은 404 를 만나고, 그것은 우리가 아니라 그 사람이 겪는다.
+
+**4 번이 없으면 아무도 이 모델을 못 쓴다.** 허브의 입구는 `load(매니페스트 주소)`
+하나인데, 이 저장소는 비공개다 — 매니페스트가 CDN 에 없으면 **남에게 건넬 수 있는
+주소가 세상에 없다.** 가중치 주소는 절대 주소라 잘 열리고 샘플은 상대 주소라 매니페스트를
+따라가므로, 로컬에서 서빙하며 검사하면 이 구멍이 통째로 안 보인다(실제로 그랬다).
+
+**5 번의 `--mutable` 은 목차에만 쓴다.** 버전이 박힌 자산에 쓰면 이미 나간 매니페스트를
+덮어쓸 수 있게 되고, 그 손해는 되돌릴 수 없다. 목차는 반대로 바뀌어야 하는 물건이라
+`immutable` 이 붙으면 받은 사람이 1 년 동안 옛 목차를 쥔다.
 
 **3 번을 건너뛰지 말 것.** 1·2 가 성공해도 로더가 그 매니페스트를 소화하는지는
 별개다 — 상대 주소와 절대 주소가 한 문서에 섞여 있고, 그 이음매는 실제로 받아 봐야

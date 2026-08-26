@@ -20,6 +20,19 @@
 - `Cache-Control: public, max-age=31536000, immutable` — 경로에 버전이 박혀 있고
   받는 쪽이 해시로 검증한다. 바뀔 수 없는 물건이므로 immutable 이 정확한 표시이고,
   그것이 붙으면 두 번째 방문자는 재검증 왕복조차 안 한다
+
+## `--mutable` — 목차처럼 **바뀌는 것**
+
+`index.json` 은 모델이 늘 때마다 같은 주소에서 내용이 바뀐다. 위의 두 규칙이 거기서는
+정확히 반대로 해롭다:
+
+- `immutable` 을 붙이면 **받은 사람의 브라우저가 1 년 동안 옛 목차를 쥔다.** 새 모델을
+  올려도 그 사람에게는 없는 것이 된다
+- 덮어쓰기를 막으면 목차를 갱신할 방법이 없다
+
+그래서 이 깃발은 짧은 캐시를 주고 덮어쓰기를 허용한다. **기본이 아닌 이유**는 실수의
+방향이다 — 버전 박힌 자산을 덮어쓰면 이미 나간 매니페스트가 거짓이 되고, 그 손해는
+되돌릴 수 없다. 목차를 잠깐 낡게 두는 쪽이 언제나 덜 나쁘다.
 """
 
 import argparse
@@ -30,6 +43,8 @@ import sys
 import urllib.request
 
 CACHE_FOREVER = "public, max-age=31536000, immutable"
+# 목차용. 1 분이면 배포 직후의 혼선을 줄이면서 CDN 을 매번 때리지도 않는다.
+CACHE_BRIEFLY = "public, max-age=60"
 OCTET = "application/octet-stream"
 
 
@@ -41,6 +56,8 @@ def main() -> int:
     p.add_argument("--key", required=True)
     p.add_argument("--public-base", required=True, help="공개 주소의 뿌리")
     p.add_argument("--content-type", default=OCTET)
+    p.add_argument("--mutable", action="store_true",
+                   help="목차처럼 같은 주소에서 바뀌는 것 — 짧은 캐시, 덮어쓰기 허용")
     args = p.parse_args()
 
     path = pathlib.Path(args.file).expanduser().resolve()
@@ -68,7 +85,9 @@ def main() -> int:
     except s3.exceptions.ClientError:
         exists = False
 
-    if exists:
+    cache = CACHE_BRIEFLY if args.mutable else CACHE_FOREVER
+
+    if exists and not args.mutable:
         if head["ContentLength"] == len(raw):
             print(f"이미 있다(같은 길이): {args.key} — 올리지 않는다")
         else:
@@ -77,10 +96,11 @@ def main() -> int:
                   file=sys.stderr)
             return 1
     else:
-        print(f"올린다: {args.key} ({len(raw):,} 바이트)")
+        what = "갱신한다" if exists else "올린다"
+        print(f"{what}: {args.key} ({len(raw):,} 바이트, {cache})")
         s3.put_object(
             Bucket=args.bucket, Key=args.key, Body=raw,
-            ContentType=args.content_type, CacheControl=CACHE_FOREVER,
+            ContentType=args.content_type, CacheControl=cache,
             Metadata={"sha256": digest},
         )
 
@@ -101,6 +121,13 @@ def main() -> int:
     print(f"  cache-control: {headers.get('cache-control')}")
     print(f"  accept-ranges: {headers.get('accept-ranges')}")
     if back != digest:
+        if args.mutable:
+            # 방금 갱신한 목차는 **캐시가 잠깐 옛것을 쥔다.** 그것을 실패로 세면 갱신할
+            # 때마다 빨간불이 뜨고, 사람은 곧 이 확인을 안 믿게 된다. 짧은 캐시가
+            # 지나면 스스로 맞아지는 종류이므로, 말은 하되 멈추지 않는다.
+            print(f"\n공개 주소가 아직 옛 바이트를 준다 — {cache} 가 지나면 맞아진다.",
+                  file=sys.stderr)
+            return 0
         print("\n공개 주소가 다른 바이트를 준다.", file=sys.stderr)
         return 1
     print(f"\nsha256: {digest}")
