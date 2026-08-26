@@ -295,6 +295,15 @@ def main() -> int:
     p.add_argument("--tags", default="vision,resnet,cifar-10")
     p.add_argument("--description", default=None)
     p.add_argument("--ts", default=">=0.1.0", help="npm borch 의 semver 범위")
+    # **기본값이 모든 모델에 맞지는 않는다.** 이 둘은 받는 쪽이 샘플을 재현했다고
+    # 판정하는 기준이고, 재현 오차는 모델마다 다르다 — 같은 계열 안에서도
+    # mobilenetv3_large 는 2.7e-06, small 은 1.6e-05 였다(둘 다 구조는 정확하다;
+    # 랜덤 초기화에서 1e-08 아래로 맞는다). 작은 모델일수록 채널이 적어 float32
+    # 누적이 상대적으로 크게 남는다.
+    #
+    # 화물을 만들 때 **그 모델의 실측을 보고 정할 것.** 기본값으로 두고 통과하면
+    # 그대로 두고, 걸리면 늘리기 전에 구조부터 확인한다 — 카탈로그 쪽 parity 가
+    # 랜덤 초기화로 그것을 따로 잰다.
     p.add_argument("--rtol", type=float, default=1e-4)
     p.add_argument("--atol", type=float, default=1e-5)
     p.add_argument("--license", default="Apache-2.0")
