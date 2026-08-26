@@ -347,7 +347,8 @@
             "interpolation": {
               "enum": [
                 "nearest",
-                "bilinear"
+                "bilinear",
+                "bicubic"
               ]
             }
           }
