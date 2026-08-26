@@ -68,6 +68,32 @@ def build(args: argparse.Namespace) -> int:
         print(f"이 화물은 무효 표시가 붙어 있다: {summary['invalid']}", file=sys.stderr)
         return 2
 
+    # **가중치 라이선스는 화물이 말한 것을 쓴다.**
+    #
+    # 전에는 `--license` 의 기본값(Apache-2.0)이 그대로 매니페스트에 들어갔다. 지금까지
+    # 가져온 화물이 전부 apache-2.0 이라 우연히 맞았을 뿐, 대조된 적은 없었다. timm 에는
+    # `cc-by-nc-4.0` 인 가중치도 있고, 그런 것을 가져오면 **매니페스트는 조용히
+    # Apache-2.0 이라고 말하고** 사실은 provenance.md 에만 남는다.
+    #
+    # 라이선스는 재배포되는 물건에 대한 주장이라 조용히 틀리면 안 되는 자리다. 그래서
+    # 기계가 읽는 필드가 사람이 읽는 기록과 **같은 곳에서** 나오게 한다.
+    said = (summary.get("source") or {}).get("license")
+    license_of_weights = args.license
+    if said:
+        given = "--license" in sys.argv
+        if given and args.license.lower() != said.lower():
+            print(f"화물은 가중치가 {said!r} 라는데 --license 는 {args.license!r} 다.\n"
+                  "  둘 중 하나가 틀렸다. 출처가 맞으면 --license 를 빼라 —\n"
+                  "  화물이 말한 것을 그대로 쓴다.", file=sys.stderr)
+            return 2
+        license_of_weights = said
+    elif converted:
+        # 가져온 화물인데 출처가 라이선스를 안 적었다. 기본값으로 지어내지 않는다.
+        print("가져온 화물인데 summary 에 source.license 가 없다.\n"
+              "  --license 로 **확인한 값**을 직접 넘겨라. 기본값은 확인이 아니다.",
+              file=sys.stderr)
+        return 2
+
     raw = weights_path.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
     if digest != summary.get("sha256"):
@@ -146,7 +172,7 @@ def build(args: argparse.Namespace) -> int:
         },
         "outputs": {"kind": "logits", "classes": classes},
         "origin": args.origin,
-        "license": {"weights": args.license, "data": args.data_license},
+        "license": {"weights": license_of_weights, "data": args.data_license},
         "attestation": None,
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
@@ -306,7 +332,8 @@ def main() -> int:
     # 랜덤 초기화로 그것을 따로 잰다.
     p.add_argument("--rtol", type=float, default=1e-4)
     p.add_argument("--atol", type=float, default=1e-5)
-    p.add_argument("--license", default="Apache-2.0")
+    p.add_argument("--license", default="Apache-2.0",
+                   help="가중치 라이선스. 화물이 출처를 적어뒀으면 그쪽이 이긴다")
     p.add_argument("--data-license", dest="data_license", default="CIFAR-10 (research use)")
     p.add_argument("--origin", default="trained-by-borch",
                    choices=("trained-by-borch", "converted-from-torch"),
