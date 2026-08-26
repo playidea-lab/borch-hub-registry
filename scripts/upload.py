@@ -70,6 +70,18 @@ def main() -> int:
     import boto3
     from botocore.config import Config
 
+    # **없는 것을 이름으로 말한다.** 전에는 `os.environ[...]` 이 KeyError 를 그대로
+    # 올려서, 파일 아홉 개를 도는 반복문이 같은 파이썬 역추적을 아홉 번 뱉었다 —
+    # 무엇이 없는지는 마지막 줄에만 있고, 정작 필요한 말("export 하고 다시")은 없다.
+    missing = [k for k in ("R2_ENDPOINT", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
+               if not os.environ.get(k)]
+    if missing:
+        print(f"자격증명이 없다: {', '.join(missing)}\n"
+              "  Cloudflare 대시보드 → R2 → API 토큰에서 받아 **같은 명령 안에서** 넘겨라:\n"
+              "    export R2_ENDPOINT=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=...\n"
+              "  아무것도 올라가지 않았다.", file=sys.stderr)
+        return 2
+
     s3 = boto3.client(
         "s3", endpoint_url=os.environ["R2_ENDPOINT"], region_name="auto",
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
