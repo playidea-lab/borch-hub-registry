@@ -67,19 +67,12 @@ uv run --with boto3 python scripts/upload.py     --file ~/git/borch-hub/out/mode
 # 3. 받는 사람이 될 것 — 이 매니페스트로 실제로 왕복이 도는지 (borch-hub 에서)
 npm run roundtrip -- --manifest models/cifar10-resnet18/1.0.0/manifest.json
 
-# 4. 매니페스트와 샘플도 CDN 으로 — **받는 사람이 이것을 받을 곳이 여기뿐이다**
-for f in manifest.json sample.in.safetensors sample.out.safetensors; do
-  uv run --with boto3 python scripts/upload.py \
-    --file models/cifar10-resnet18/1.0.0/$f --bucket borch-hub \
-    --key cifar10-resnet18/1.0.0/$f --public-base https://models.pilab.kr \
-    --content-type $([ "$f" = manifest.json ] && echo application/json || echo application/octet-stream)
-done
+# 4. 무엇이 나갈지 먼저 본다 — 매니페스트·샘플·목차 전부
+uv run --with boto3 python scripts/publish.py
 
-# 5. 목차를 다시 만들고 올린다 (바뀌는 파일이므로 --mutable)
-uv run python scripts/build_index.py
-uv run --with boto3 python scripts/upload.py \
-  --file index.json --bucket borch-hub --key index.json \
-  --public-base https://models.pilab.kr --content-type application/json --mutable
+# 5. 올린다 (자격증명이 있어야 한다)
+export R2_ENDPOINT=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=...
+uv run --with boto3 python scripts/publish.py --write
 
 # 6. 스펙 확인 후 PR
 uv run --with jsonschema python scripts/validate.py
@@ -94,7 +87,15 @@ uv run python scripts/build_index.py --dry-run
 주소가 세상에 없다.** 가중치 주소는 절대 주소라 잘 열리고 샘플은 상대 주소라 매니페스트를
 따라가므로, 로컬에서 서빙하며 검사하면 이 구멍이 통째로 안 보인다(실제로 그랬다).
 
-**5 번의 `--mutable` 은 목차에만 쓴다.** 버전이 박힌 자산에 쓰면 이미 나간 매니페스트를
+**`publish.py` 가 한 번에 부르는 것도 그래서다.** 파일마다 `upload.py` 를 셸 반복문으로
+부르면, 자격증명 한 줄이 빠졌을 때 **같은 실패가 열다섯 번** 나온다. 화면이 파이썬
+역추적으로 가득 차면 사람이 처음 하는 생각은 "스크립트가 깨졌나" 이지 "export 를 안
+했구나" 가 아니다 — 실제로 두 번 그랬다. 한 번만 부르면 시작하기 전에 다 보고 한 번만
+말한다. 파일별 되받기 확인과 덮어쓰기 금지는 그대로 `upload.py` 가 한다.
+
+**기본이 미리보기다.** 공개 CDN 에 쓰는 명령이므로 `--write` 를 손으로 적게 한다.
+
+**목차만 `--mutable` 로 나간다.** 버전이 박힌 자산에 그것을 쓰면 이미 나간 매니페스트를
 덮어쓸 수 있게 되고, 그 손해는 되돌릴 수 없다. 목차는 반대로 바뀌어야 하는 물건이라
 `immutable` 이 붙으면 받은 사람이 1 년 동안 옛 목차를 쥔다.
 
