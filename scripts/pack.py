@@ -231,16 +231,22 @@ def _provenance(out, args, summary, digest, manifest) -> int:
             "가중치·입력·출력을 받아 오고, 같은 가중치를 같은 입력에 통과시켜 수를",
             "나란히 놓는다 — 열쇠 집합과 출력 둘 다 본다.",
             "",
-            "## 옮기면서 갈린 것",
+            # 보간이 원본과 같으면 "갈린 것" 문단은 거짓이 된다. 무엇을 못 옮겼는지
+            # 적는 자리이지, 자리를 채우는 곳이 아니다.
+            *([] if args.interpolation == src.get("interpolation") else [
+                "## 옮기면서 갈린 것",
+                "",
+                f"원본은 resize 에 `{src.get('interpolation')}` 보간을 쓰는데 이 화물은",
+                f"`{args.interpolation}` 로 적혀 있다. **그것이 원본과 다른 유일한 전처리",
+                "항목이다.**",
+                "",
+            ]),
+            "## 전처리",
             "",
-            f"원본은 resize 에 `{src.get('interpolation')}` 보간을 쓴다. 코어와 이",
-            "레지스트리의 스키마가 아는 것은 `bilinear`·`nearest` 뿐이라 **그대로 못",
-            "옮겼다.** 매니페스트에는 `bilinear` 이 적혀 있고, 그것이 원본과 다른",
-            "유일한 전처리 항목이다.",
-            "",
-            "크기와 자르기는 원본대로다 — 짧은 변을",
-            f"`{src.get('resizeShortSide')}` 로 키운 뒤 가운데를",
+            f"짧은 변을 `{src.get('resizeShortSide')}` 로 키운 뒤 가운데를",
             f"`{src.get('inputSize')}` 로 자른다(crop_pct {src.get('cropPct')}).",
+            f"보간은 `{args.interpolation}` — 원본과"
+            + (" 같다." if args.interpolation == src.get("interpolation") else " 다르다."),
             "",
             "## 샘플",
             "",
@@ -279,8 +285,9 @@ def main() -> int:
     p.add_argument("--resize-short-side", dest="resize_short_side", type=int, default=None,
                    help="짧은 변을 이 크기로 (torchvision Resize(int) 규칙)")
     p.add_argument("--center-crop", dest="center_crop", default=None, help="H,W")
-    p.add_argument("--interpolation", default="bilinear", choices=("bilinear", "nearest"),
-                   help="resize 의 보간. 코어와 스키마가 아는 것이 이 둘뿐이다")
+    p.add_argument("--interpolation", default="bilinear",
+                   choices=("bilinear", "nearest", "bicubic"),
+                   help="resize 의 보간. bicubic 은 코어 0.2.0 부터 있다")
     p.add_argument("--mean", default=None, help="채널마다, 쉼표로")
     p.add_argument("--std", default=None, help="채널마다, 쉼표로")
     p.add_argument("--task", default="image-classification")

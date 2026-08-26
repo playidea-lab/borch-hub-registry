@@ -57,7 +57,7 @@
     ],
     "resize": {
       "shortSide": 256,
-      "interpolation": "bilinear"
+      "interpolation": "bicubic"
     },
     "centerCrop": [
       224,
