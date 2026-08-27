@@ -1074,5 +1074,16 @@
     "weights": "Apache-2.0",
     "data": "ImageNet-1k (research use)"
   },
-  "attestation": null
+  "attestation": null,
+  "metrics": {
+    "values": {
+      "top1_imagenetv2": 0.672,
+      "top5_imagenetv2": 0.887,
+      "n": 1000,
+      "top1_imagenetv2_timm": 0.676,
+      "top1_imagenet_reported": 0.788
+    },
+    "measuredBy": "borch-hub 0.2.5 / bimm-ts 0.7.0 / Chrome / Apple M-series · ImageNet-V2 matched-frequency, 클래스당 1장",
+    "measuredAt": "2026-08-27"
+  }
 }
