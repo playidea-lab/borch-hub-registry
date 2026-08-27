@@ -1,27 +1,27 @@
 {
   "schemaVersion": 2,
-  "name": "imagenet-mobilenetv3-large-100",
-  "version": "1.0.0",
-  "description": "timm 의 mobilenetv3_large_100 을 옮긴 것 — ImageNet-1k 1000 클래스",
+  "name": "imagenet-efficientnet-b2",
+  "version": "1.0.1",
+  "description": "timm 의 efficientnet_b2 (ra_in1k) 을 옮긴 것 — ImageNet-1k 1000 클래스",
   "task": "image-classification",
   "dataset": "imagenet-1k",
   "tags": [
     "vision",
-    "mobilenet",
+    "efficientnet",
     "imagenet",
     "timm"
   ],
   "arch": {
     "library": "timm",
-    "factory": "mobilenetv3_large_100",
+    "factory": "efficientnet_b2",
     "args": {
       "numClasses": 1000
     }
   },
   "weights": {
-    "url": "https://models.pilab.kr/imagenet-mobilenetv3-large-100/1.0.0/model.safetensors",
-    "sha256": "42568691e70638e69c380f871828bbc4131d9039e4e742ec8a476ef136dff2d5",
-    "bytes": 22058176,
+    "url": "https://models.pilab.kr/imagenet-efficientnet-b2/1.0.0/model.safetensors",
+    "sha256": "471da2f475943f6fdf16b314cc7c059fdde0fa1db4ccd0d5f7a17065b6d41095",
+    "bytes": 36757484,
     "format": "safetensors"
   },
   "runtime": {
@@ -41,8 +41,8 @@
   "preprocess": {
     "inputSize": [
       3,
-      224,
-      224
+      256,
+      256
     ],
     "valueRange": "unit",
     "mean": [
@@ -56,12 +56,12 @@
       0.225
     ],
     "resize": {
-      "shortSide": 256,
+      "shortSide": 292,
       "interpolation": "bicubic"
     },
     "centerCrop": [
-      224,
-      224
+      256,
+      256
     ]
   },
   "outputs": {
@@ -1074,5 +1074,16 @@
     "weights": "Apache-2.0",
     "data": "ImageNet-1k (research use)"
   },
-  "attestation": null
+  "attestation": null,
+  "metrics": {
+    "values": {
+      "top1_imagenetv2": 0.672,
+      "top5_imagenetv2": 0.875,
+      "n": 1000,
+      "top1_imagenetv2_timm": 0.675,
+      "top1_imagenet_reported": 0.804
+    },
+    "measuredBy": "borch-hub 0.2.5 / bimm-ts 0.7.0 / Chrome / Apple M-series · ImageNet-V2 matched-frequency, 클래스당 1장",
+    "measuredAt": "2026-08-27"
+  }
 }

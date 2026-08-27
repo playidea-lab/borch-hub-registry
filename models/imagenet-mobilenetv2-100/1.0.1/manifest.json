@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
-  "name": "imagenet-mobilenetv3-large-100",
-  "version": "1.0.0",
-  "description": "timm 의 mobilenetv3_large_100 을 옮긴 것 — ImageNet-1k 1000 클래스",
+  "name": "imagenet-mobilenetv2-100",
+  "version": "1.0.1",
+  "description": "timm 의 mobilenetv2_100 (ra_in1k) 을 옮긴 것 — ImageNet-1k 1000 클래스",
   "task": "image-classification",
   "dataset": "imagenet-1k",
   "tags": [
@@ -13,15 +13,15 @@
   ],
   "arch": {
     "library": "timm",
-    "factory": "mobilenetv3_large_100",
+    "factory": "mobilenetv2_100",
     "args": {
       "numClasses": 1000
     }
   },
   "weights": {
-    "url": "https://models.pilab.kr/imagenet-mobilenetv3-large-100/1.0.0/model.safetensors",
-    "sha256": "42568691e70638e69c380f871828bbc4131d9039e4e742ec8a476ef136dff2d5",
-    "bytes": 22058176,
+    "url": "https://models.pilab.kr/imagenet-mobilenetv2-100/1.0.0/model.safetensors",
+    "sha256": "559b7167df7c70fd62fa7d4867ba2a5b81fbf35f7a177a96e41790851c496b60",
+    "bytes": 14184328,
     "format": "safetensors"
   },
   "runtime": {
@@ -1074,5 +1074,16 @@
     "weights": "Apache-2.0",
     "data": "ImageNet-1k (research use)"
   },
-  "attestation": null
+  "attestation": null,
+  "metrics": {
+    "values": {
+      "top1_imagenetv2": 0.592,
+      "top5_imagenetv2": 0.818,
+      "n": 1000,
+      "top1_imagenetv2_timm": 0.592,
+      "top1_imagenet_reported": 0.729
+    },
+    "measuredBy": "borch-hub 0.2.5 / bimm-ts 0.7.0 / Chrome / Apple M-series · ImageNet-V2 matched-frequency, 클래스당 1장",
+    "measuredAt": "2026-08-27"
+  }
 }
