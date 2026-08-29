@@ -49,6 +49,50 @@ def _fail(what: str):
                      "  없으면 가중치는 실리는데 아무것도 못 넣습니다.")
 
 
+def preprocess_of(summary: dict, args: argparse.Namespace) -> dict:
+    """전처리를 **화물이 든 것**에서 읽는다. 인자는 옛 화물을 위해서만 남는다.
+
+    내보내는 쪽이 timm 에서 이미 꺼내 `summary.json` 에 적어 둔다. 여기서 그것을
+    안 보고 명령줄로 다시 받으면 **사람이 모델마다 여섯 값을 옮겨 적게 되고**, 값은
+    모델마다 다르다 — ViT 는 평균이 0.5, EfficientNet b5 는 입력이 448, 짧은 변은
+    235·248·448 로 갈린다.
+
+    그리고 여기서 틀리면 **모델은 실리고 수만 조금 낮게 나온다.** 그럴듯해서 아무도
+    안 의심하는 종류의 실패고, 정확도를 재기 시작한 뒤에야 보인다.
+
+    `centerCrop` 은 `inputSize` 의 뒤 두 칸이다 — timm 의 평가 경로가 짧은 변을 키운
+    뒤 그 크기로 가운데를 자르므로 두 값이 갈릴 자리가 아니다.
+    """
+    said = summary.get("preprocess")
+    if said is None:
+        # 옛 화물에는 이 칸이 없다. 인자로 받던 길을 그대로 둔다.
+        return {
+            "inputSize": [int(n) for n in args.input_size.split(",")],
+            "valueRange": "unit",
+            "mean": numbers(args.mean, "--mean"),
+            "std": numbers(args.std, "--std"),
+            "resize": (None if args.resize_short_side is None else
+                       {"shortSide": args.resize_short_side,
+                        "interpolation": args.interpolation}),
+            "centerCrop": ([int(n) for n in args.center_crop.split(",")]
+                           if args.center_crop else None),
+        }
+    size = [int(n) for n in said["inputSize"]]
+    short = said.get("resizeShortSide")
+    return {
+        "inputSize": size,
+        "valueRange": "unit",
+        "mean": [float(v) for v in said["mean"]],
+        "std": [float(v) for v in said["std"]],
+        # **비워 두면 이미지가 모델에 안 맞게 들어간다.** 안 적으면 받는 쪽이 늘려
+        # 넣게 되고, 모델은 실리는데 이름이 틀리게 나온다(실측).
+        "resize": (None if short is None else
+                   {"shortSide": int(short),
+                    "interpolation": said.get("interpolation", args.interpolation)}),
+        "centerCrop": [size[1], size[2]],
+    }
+
+
 def build(args: argparse.Namespace) -> int:
     cargo = pathlib.Path(args.cargo).expanduser().resolve()
     summary_path = cargo / "summary.json"
@@ -155,21 +199,7 @@ def build(args: argparse.Namespace) -> int:
             "measuredBy": f"borch.ts / {summary['adapter']}",
             "measuredAt": args.date,
         }}),
-        "preprocess": {
-            "inputSize": [int(n) for n in args.input_size.split(",")],
-            "valueRange": "unit",
-            "mean": numbers(args.mean, "--mean"),
-            "std": numbers(args.std, "--std"),
-            # **둘을 비워 두면 이미지가 모델에 안 맞게 들어간다.** 32×32 로 학습한
-            # 첫 화물은 크기를 맞추는 것만으로 충분했지만, ImageNet 계열은 짧은 변을
-            # 키운 뒤 가운데를 자르는 것이 학습 때의 규칙이다. 안 적으면 받는 쪽이
-            # 늘려 넣게 되고, 모델은 실리는데 이름이 틀리게 나온다(실측).
-            "resize": (None if args.resize_short_side is None else
-                       {"shortSide": args.resize_short_side,
-                        "interpolation": args.interpolation}),
-            "centerCrop": ([int(n) for n in args.center_crop.split(",")]
-                           if args.center_crop else None),
-        },
+        "preprocess": preprocess_of(summary, args),
         "outputs": {"kind": "logits", "classes": classes},
         "origin": args.origin,
         "license": {"weights": license_of_weights, "data": args.data_license},
